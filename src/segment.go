@@ -130,6 +130,10 @@ const (
 	Angular SegmentType = "angular"
 	// PHP writes which php version is currently active
 	PHP SegmentType = "php"
+	// Nightscout is an open source diabetes system
+	Nightscout SegmentType = "nightscout"
+	// WiFi writes details about the current WiFi connection
+	WiFi SegmentType = "wifi"
 	// WinReg queries the Windows registry.
 	WinReg SegmentType = "winreg"
 )
@@ -265,6 +269,8 @@ func (segment *Segment) mapSegmentWithWriter(env environmentInfo) error {
 		SysInfo:       &sysinfo{},
 		Angular:       &angular{},
 		PHP:           &php{},
+		Nightscout:    &nightscout{},
+		WiFi:          &wifi{},
 		WinReg:        &winreg{},
 	}
 	if writer, ok := functions[segment.Type]; ok {

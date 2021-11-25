@@ -181,6 +181,7 @@
             "sysinfo",
             "angular",
             "php",
+            "wifi",
             "regquery"
           ]
         },
@@ -1702,6 +1703,29 @@
         {
           "if": {
             "properties": {
+<<<<<<< HEAD
+=======
+              "type": { "const": "wifi" }
+            }
+          },
+          "then": {
+            "title": "WiFi Segment",
+            "description": "https://ohmyposh.dev/docs/wifi",
+            "properties": {
+              "properties": {
+                "properties": {
+                  "template": {
+                    "$ref": "#/definitions/template"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+>>>>>>> 5b5666b5b060604c56752240cce9fa16422c240c
               "type": { "const": "winreg" }
             }
           },
@@ -1714,13 +1738,21 @@
                   "template": {
                     "$ref": "#/definitions/template"
                   },
+<<<<<<< HEAD
                   "registry_path": {
+=======
+                  "path": {
+>>>>>>> 5b5666b5b060604c56752240cce9fa16422c240c
                     "type": "string",
                     "title": "Registry Path",
                     "description": "The path under which the registy key lives (case insensitive, must use backslashes), e.g. HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion",
                     "default": ""
                   },
+<<<<<<< HEAD
                   "registry_key": {
+=======
+                  "key": {
+>>>>>>> 5b5666b5b060604c56752240cce9fa16422c240c
                     "type": "string",
                     "title": "Registry Key",
                     "description": "The key under he registry path to get (case insensitive).  If left blank, will get the value of the (Default) key in the registry_path",
