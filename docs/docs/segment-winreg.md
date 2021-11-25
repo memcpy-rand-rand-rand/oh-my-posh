@@ -1,5 +1,5 @@
 ---
-id: winreg    
+id: winreg
 title: Windows Registry Key Query
 sidebar_label: Windows Registry Key Query
 ---
@@ -10,8 +10,8 @@ Display the content of the requested Windows registry key.
 
 Supported registry key types:
 
-* String
-* DWORD (displayed in upper-case 0x hex)
+- String
+- DWORD (displayed in upper-case 0x hex)
 
 ## Sample Configuration
 
@@ -23,15 +23,25 @@ Supported registry key types:
     "foreground": "#ffffff",
     "background": "#444444",
     "properties": {
-      "registry_path": "HKLM\\software\\microsoft\\windows nt\\currentversion",
-      "registry_key":"buildlab",
-      "template":"{{if .GotKeyValue}}{{ .KeyValue }}{{else}}unknown{{ end }}",
+      "path": "HKLM\\software\\microsoft\\windows nt\\currentversion",
+      "key":"buildlab",
+      "template":"{{ if .Value }}{{ .Value }}{{ else }}unknown{{ end }}",
       "prefix": " \uE62A "
     }
-  }, 
+  },
 ```
 
 ## Properties
 
-* registry_path: `string` - registry path to the desired key using backslashes and with a valid root HKEY name.
-* registry_key: `string` - the key to read from the registry_path location.  If "", will read the "(Default)" value.
+- path: `string` - registry path to the desired key using backslashes and with a valid root HKEY name.
+- key: `string` - the key to read from the `path` location.
+- fallback: `string` - the value to fall back to if no entry is found
+- template: `string` - a go [text/template][go-text-template] template extended
+  with [sprig][sprig] utilizing the properties below.
+
+## Template Properties
+
+- .Value: `string` - The result of your query
+
+[go-text-template]: https://golang.org/pkg/text/template/
+[sprig]: https://masterminds.github.io/sprig/

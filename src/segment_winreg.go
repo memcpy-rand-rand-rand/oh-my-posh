@@ -1,66 +1,47 @@
-// TODO:
-//
-//  * reg value -> string formatting to own fn?
-//  * support for other reg types?
-//  * custom formatting for values?  (custom sprintf is too dangerous, what else?)
-//
-
 package main
 
 type winreg struct {
-	props         *properties
-	env           environmentInfo
-	segmentString string
+	props *properties
+	env   environmentInfo
 
-	KeyValue    string
-	GotKeyValue bool
+	Value string
 }
 
 const (
-
-	// Properties defining how to get to the key.
-	RegistryPath Property = "registry_path" // path from the supplied root under which the key exists
-	RegistryKey  Property = "registry_key"  // key within full reg path formed from two above
+	// path from the supplied root under which the key exists
+	RegistryPath Property = "path"
+	// key within full reg path formed from two above
+	RegistryKey Property = "key"
+	// Fallback is the text to display if the key is not found
+	Fallback Property = "fallback"
 )
 
 func (wr *winreg) init(props *properties, env environmentInfo) {
 	wr.props = props
 	wr.env = env
-	wr.KeyValue = ""
 }
 
 func (wr *winreg) enabled() bool {
-	// Definitely no point going further if it's not windows.
 	if wr.env.getRuntimeGOOS() != windowsPlatform {
 		return false
 	}
 
 	registryPath := wr.props.getString(RegistryPath, "")
 	registryKey := wr.props.getString(RegistryKey, "")
+	fallback := wr.props.getString(Fallback, "")
 
-	keyValue, err := wr.env.getWindowsRegistryKeyValue(registryPath, registryKey)
-
-	wr.KeyValue = keyValue
-	wr.GotKeyValue = (err == nil)
-
-	// Need to do the template work here, not in string() to determine whether to display the segment
-	// If there is a template and the resulting output is not empty, then enable the segment.
-	segmentTemplate := wr.props.getString(SegmentTemplate, "")
-	if len(segmentTemplate) > 0 {
-		displayString := wr.templateString(segmentTemplate)
-		if len(displayString) > 0 {
-			wr.segmentString = displayString
-			return true
-		}
+	var err error
+	wr.Value, err = wr.env.getWindowsRegistryKeyValue(registryPath, registryKey)
+	if len(fallback) > 0 && (err != nil || len(wr.Value) == 0) {
+		wr.Value = fallback
+		return true
 	}
-
-	// failing that, enabled if we got a key value
-	wr.segmentString = wr.KeyValue
-	return wr.GotKeyValue
+	return err == nil && len(wr.Value) > 0
 }
 
 func (wr *winreg) string() string {
-	return wr.segmentString
+	segmentTemplate := wr.props.getString(SegmentTemplate, "{{ .Value }}")
+	return wr.templateString(segmentTemplate)
 }
 
 func (wr *winreg) templateString(segmentTemplate string) string {
