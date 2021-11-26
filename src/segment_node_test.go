@@ -31,11 +31,12 @@ func TestNodeMatchesVersionFile(t *testing.T) {
 	for _, tc := range cases {
 		env := new(MockedEnvironment)
 		env.On("getFileContent", ".nvmrc").Return(tc.RCVersion)
+
 		node := &node{
 			language: &language{
 				env: env,
 				activeCommand: &cmd{
-					version: &nodeVersion,
+					version: nodeVersion,
 				},
 			},
 		}
@@ -68,12 +69,10 @@ func TestNodeInContext(t *testing.T) {
 		node := &node{
 			language: &language{
 				env: env,
-				props: &properties{
-					values: map[Property]interface{}{
-						YarnIcon:              "yarn",
-						NPMIcon:               "npm",
-						DisplayPackageManager: tc.PkgMgrEnabled,
-					},
+				props: map[Property]interface{}{
+					YarnIcon:              "yarn",
+					NPMIcon:               "npm",
+					DisplayPackageManager: tc.PkgMgrEnabled,
 				},
 			},
 		}

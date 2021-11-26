@@ -25,7 +25,8 @@ type cmd struct {
 	executable string
 	args       []string
 	regex      string
-	version    *version
+
+	version
 }
 
 func (c *cmd) parse(versionInfo string) error {
@@ -33,7 +34,7 @@ func (c *cmd) parse(versionInfo string) error {
 	if len(values) == 0 {
 		return errors.New("cannot parse version string")
 	}
-	c.version = &version{}
+
 	c.version.Full = values["version"]
 	c.version.Major = values["major"]
 	c.version.Minor = values["minor"]
@@ -65,7 +66,7 @@ func (c *cmd) buildVersionURL(text, template string) string {
 }
 
 type language struct {
-	props              *properties
+	props              properties
 	env                environmentInfo
 	extensions         []string
 	commands           []*cmd
@@ -98,6 +99,8 @@ const (
 	EnableVersionMismatch Property = "enable_version_mismatch"
 	// HomeEnabled displays the segment in the HOME folder or not
 	HomeEnabled Property = "home_enabled"
+	// LanguageExtensions the list of extensions to validate
+	LanguageExtensions Property = "extensions"
 )
 
 func (l *language) string() string {
@@ -151,6 +154,9 @@ func (l *language) string() string {
 }
 
 func (l *language) enabled() bool {
+	// override default extensions if needed
+	l.extensions = l.props.getStringArray(LanguageExtensions, l.extensions)
+
 	inHomeDir := func() bool {
 		return l.env.getcwd() == l.env.homeDir()
 	}
@@ -234,8 +240,8 @@ func (l *language) setVersionFileMismatch() {
 		return
 	}
 	if l.props.getBool(ColorBackground, false) {
-		l.props.background = l.props.getColor(VersionMismatchColor, l.props.background)
+		l.props[BackgroundOverride] = l.props.getColor(VersionMismatchColor, l.props.getColor(BackgroundOverride, ""))
 		return
 	}
-	l.props.foreground = l.props.getColor(VersionMismatchColor, l.props.foreground)
+	l.props[ForegroundOverride] = l.props.getColor(VersionMismatchColor, l.props.getColor(ForegroundOverride, ""))
 }

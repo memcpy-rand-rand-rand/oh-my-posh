@@ -11,7 +11,7 @@ require (
 	github.com/alecthomas/colour v0.1.0 // indirect
 	github.com/alecthomas/repr v0.0.0-20210801044451-80ca428c5142 // indirect
 	github.com/distatus/battery v0.10.0
-	github.com/esimov/stackblur-go v1.0.0
+	github.com/esimov/stackblur-go v1.0.2
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/google/uuid v1.3.0 // indirect
@@ -22,19 +22,20 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/sergi/go-diff v1.2.0 // indirect
+	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
-	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d
-	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b
+	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
+	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
+	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881
 	golang.org/x/text v0.3.7
-	gopkg.in/ini.v1 v1.63.2
+	gopkg.in/ini.v1 v1.64.0
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06 // indirect
 )
 
-require github.com/shirou/gopsutil/v3 v3.21.10
+require gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -50,14 +51,11 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/shopspring/decimal v1.3.0 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 replace github.com/distatus/battery v0.10.0 => github.com/JanDeDobbeleer/battery v0.10.0-2
-
-replace github.com/shirou/gopsutil v3.21.9+incompatible => github.com/JanDeDobbeleer/gopsutil v3.21.9-1+incompatible

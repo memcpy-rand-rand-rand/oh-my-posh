@@ -1,5 +1,11 @@
-# Activate oh-my-posh prompt:
-Import-Module oh-my-posh
-Set-PoshPrompt -Theme ${env:POSHTHEMES_ROOT}/${env:DEFAULT_POSH_THEME}.omp.json
+Import-Module posh-git
+Import-Module PSFzf -ArgumentList 'Ctrl+t', 'Ctrl+r'
+Import-Module z
+Import-Module Terminal-Icons
 
-# NOTE: You can override the above env vars from the devcontainer.json "args" under the "build" key.
+Set-PSReadlineKeyHandler -Key Tab -Function MenuComplete
+
+$env:POSH_GIT_ENABLED=$true
+oh-my-posh --init --shell pwsh --config $env:POSH_THEME | Invoke-Expression
+
+# NOTE: You can override the above env var from the devcontainer.json "args" under the "build" key.

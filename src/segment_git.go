@@ -63,7 +63,7 @@ func (s *GitStatus) String() string {
 }
 
 type git struct {
-	props *properties
+	props properties
 	env   environmentInfo
 
 	Working       *GitStatus
@@ -81,6 +81,8 @@ type git struct {
 	gitWorkingFolder  string // .git working folder, can be different of root if using worktree
 	gitRootFolder     string // .git root folder
 	gitWorktreeFolder string // .git real worktree path
+
+	gitCommand string
 }
 
 const (
@@ -172,10 +174,7 @@ func (g *git) enabled() bool {
 }
 
 func (g *git) shouldIgnoreRootRepository(rootDir string) bool {
-	if g.props == nil || g.props.values == nil {
-		return false
-	}
-	value, ok := g.props.values[ExcludeFolders]
+	value, ok := g.props[ExcludeFolders]
 	if !ok {
 		return false
 	}
@@ -185,20 +184,20 @@ func (g *git) shouldIgnoreRootRepository(rootDir string) bool {
 
 func (g *git) string() string {
 	statusColorsEnabled := g.props.getBool(StatusColorsEnabled, false)
-	displayStatus := g.getBool(FetchStatus, DisplayStatus)
+	displayStatus := g.props.getOneOfBool(FetchStatus, DisplayStatus)
 	if !displayStatus {
 		g.HEAD = g.getPrettyHEADName()
 	}
 	if displayStatus || statusColorsEnabled {
 		g.setGitStatus()
 	}
-	if g.Upstream != "" && g.getBool(FetchUpstreamIcon, DisplayUpstreamIcon) {
+	if g.Upstream != "" && g.props.getOneOfBool(FetchUpstreamIcon, DisplayUpstreamIcon) {
 		g.UpstreamIcon = g.getUpstreamIcon()
 	}
-	if g.getBool(FetchStashCount, DisplayStashCount) {
+	if g.props.getOneOfBool(FetchStashCount, DisplayStashCount) {
 		g.StashCount = g.getStashContext()
 	}
-	if g.getBool(FetchWorktreeCount, DisplayWorktreeCount) {
+	if g.props.getOneOfBool(FetchWorktreeCount, DisplayWorktreeCount) {
 		g.WorktreeCount = g.getWorktreeContext()
 	}
 	// use template if available
@@ -224,7 +223,7 @@ func (g *git) templateString(segmentTemplate string) string {
 	return text
 }
 
-func (g *git) init(props *properties, env environmentInfo) {
+func (g *git) init(props properties, env environmentInfo) {
 	g.props = props
 	g.env = env
 }
@@ -284,14 +283,24 @@ func (g *git) setGitStatus() {
 }
 
 func (g *git) getGitCommand() string {
-	inWSLSharedDrive := func(env environmentInfo) bool {
-		return env.isWsl() && strings.HasPrefix(env.getcwd(), "/mnt/")
+	if len(g.gitCommand) > 0 {
+		return g.gitCommand
 	}
-	gitCommand := "git"
-	if g.env.getRuntimeGOOS() == windowsPlatform || inWSLSharedDrive(g.env) {
-		gitCommand = "git.exe"
+	inWSL2SharedDrive := func(env environmentInfo) bool {
+		if !env.isWsl() {
+			return false
+		}
+		if !strings.HasPrefix(env.getcwd(), "/mnt/") {
+			return false
+		}
+		uname, _ := g.env.runCommand("uname", "-r")
+		return strings.Contains(uname, "WSL2")
 	}
-	return gitCommand
+	g.gitCommand = "git"
+	if g.env.getRuntimeGOOS() == windowsPlatform || inWSL2SharedDrive(g.env) {
+		g.gitCommand = "git.exe"
+	}
+	return g.gitCommand
 }
 
 func (g *git) getGitCommandOutput(args ...string) string {

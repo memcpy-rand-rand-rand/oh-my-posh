@@ -4,7 +4,35 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+
+	"github.com/distatus/battery"
 )
+
+// Segment
+
+const (
+	BackgroundOverride Property = "background"
+	ForegroundOverride Property = "foreground"
+)
+
+// Properties
+
+func (p properties) getOneOfBool(property, legacyProperty Property) bool {
+	_, found := p[legacyProperty]
+	if found {
+		return p.getBool(legacyProperty, false)
+	}
+	return p.getBool(property, false)
+}
+
+func (p properties) hasOneOf(properties ...Property) bool {
+	for _, property := range properties {
+		if _, found := p[property]; found {
+			return true
+		}
+	}
+	return false
+}
 
 // GIT Segement
 
@@ -45,14 +73,6 @@ const (
 	StatusSeparatorIcon Property = "status_separator_icon"
 )
 
-func (g *git) getBool(property, legacyProperty Property) bool {
-	_, found := g.props.values[legacyProperty]
-	if found {
-		return g.props.getBool(legacyProperty, false)
-	}
-	return g.props.getBool(property, false)
-}
-
 func (g *git) deprecatedString(statusColorsEnabled bool) string {
 	if statusColorsEnabled {
 		g.SetStatusColor()
@@ -87,9 +107,9 @@ func (g *git) deprecatedString(statusColorsEnabled bool) string {
 
 func (g *git) SetStatusColor() {
 	if g.props.getBool(ColorBackground, true) {
-		g.props.background = g.getStatusColor(g.props.background)
+		g.props[BackgroundOverride] = g.getStatusColor(g.props.getColor(BackgroundOverride, ""))
 	} else {
-		g.props.foreground = g.getStatusColor(g.props.foreground)
+		g.props[ForegroundOverride] = g.getStatusColor(g.props.getColor(ForegroundOverride, ""))
 	}
 }
 
@@ -108,25 +128,24 @@ func (g *git) getStatusColor(defaultValue string) string {
 
 func (g *git) getStatusDetailString(status *GitStatus, color, icon Property, defaultIcon string) string {
 	prefix := g.props.getString(icon, defaultIcon)
-	foregroundColor := g.props.getColor(color, g.props.foreground)
-	if !g.props.getBool(DisplayStatusDetail, true) {
-		return g.colorStatusString(prefix, "", foregroundColor)
+	foregroundColor := g.props.getColor(color, g.props.getColor(ForegroundOverride, ""))
+	detail := ""
+	if g.props.getBool(DisplayStatusDetail, true) {
+		detail = status.String()
 	}
-	return g.colorStatusString(prefix, status.String(), foregroundColor)
+	statusStr := g.colorStatusString(prefix, detail, foregroundColor)
+	return strings.TrimSpace(statusStr)
 }
 
 func (g *git) colorStatusString(prefix, status, color string) string {
-	if color == g.props.foreground && len(status) == 0 {
-		return prefix
-	}
-	if color == g.props.foreground {
+	if len(color) == 0 {
 		return fmt.Sprintf("%s %s", prefix, status)
-	}
-	if strings.Contains(prefix, "</>") {
-		return fmt.Sprintf("%s <%s>%s</>", prefix, color, status)
 	}
 	if len(status) == 0 {
 		return fmt.Sprintf("<%s>%s</>", color, prefix)
+	}
+	if strings.Contains(prefix, "</>") {
+		return fmt.Sprintf("%s <%s>%s</>", prefix, color, status)
 	}
 	return fmt.Sprintf("<%s>%s %s</>", color, prefix, status)
 }
@@ -149,10 +168,10 @@ const (
 func (e *exit) deprecatedString() string {
 	colorBackground := e.props.getBool(ColorBackground, false)
 	if e.Code != 0 && !colorBackground {
-		e.props.foreground = e.props.getColor(ErrorColor, e.props.foreground)
+		e.props[ForegroundOverride] = e.props.getColor(ErrorColor, e.props.getColor(ForegroundOverride, ""))
 	}
 	if e.Code != 0 && colorBackground {
-		e.props.background = e.props.getColor(ErrorColor, e.props.background)
+		e.props[BackgroundOverride] = e.props.getColor(ErrorColor, e.props.getColor(BackgroundOverride, ""))
 	}
 	if e.Code == 0 {
 		return e.props.getString(SuccessIcon, "")
@@ -165,4 +184,57 @@ func (e *exit) deprecatedString() string {
 		return fmt.Sprintf("%s%d", errorIcon, e.Code)
 	}
 	return fmt.Sprintf("%s%s", errorIcon, e.Text)
+}
+
+// Battery segment
+
+const (
+	// ChargedColor to display when fully charged
+	ChargedColor Property = "charged_color"
+	// ChargingColor to display when charging
+	ChargingColor Property = "charging_color"
+	// DischargingColor to display when discharging
+	DischargingColor Property = "discharging_color"
+	// DisplayCharging Hide the battery icon while it's charging
+	DisplayCharging Property = "display_charging"
+	// DisplayCharged Hide the battery icon when it's charged
+	DisplayCharged Property = "display_charged"
+)
+
+func (b *batt) colorSegment() {
+	if !b.props.hasOneOf(ChargedColor, ChargingColor, DischargingColor) {
+		return
+	}
+	var colorProperty Property
+	switch b.Battery.State {
+	case battery.Discharging, battery.NotCharging:
+		colorProperty = DischargingColor
+	case battery.Charging:
+		colorProperty = ChargingColor
+	case battery.Full:
+		colorProperty = ChargedColor
+	case battery.Empty, battery.Unknown:
+		return
+	}
+	colorBackground := b.props.getBool(ColorBackground, false)
+	if colorBackground {
+		b.props[BackgroundOverride] = b.props.getColor(colorProperty, b.props.getColor(BackgroundOverride, ""))
+	} else {
+		b.props[ForegroundOverride] = b.props.getColor(colorProperty, b.props.getColor(ForegroundOverride, ""))
+	}
+}
+
+func (b *batt) shouldDisplay() bool {
+	if !b.props.hasOneOf(DisplayCharged, DisplayCharging) {
+		return true
+	}
+	displayCharged := b.props.getBool(DisplayCharged, true)
+	if !displayCharged && (b.Battery.State == battery.Full) {
+		return false
+	}
+	displayCharging := b.props.getBool(DisplayCharging, true)
+	if !displayCharging && (b.Battery.State == battery.Charging) {
+		return false
+	}
+	return true
 }
