@@ -2,8 +2,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
 :::tip
-If you have no idea which shell you're currently using, Oh My Posh has a utility switch that can tell that to you (not relevant
-for the Powershell module).
+If you have no idea which shell you're currently using, Oh My Posh has a utility switch that can tell that to you.
 :::
 
 ```bash
@@ -25,6 +24,15 @@ oh-my-posh --print-shell
 <TabItem value="powershell">
 
 Edit `$PROFILE` in your preferred PowerShell version and add the following line.
+
+:::caution
+If you installed Oh My Posh using `Install-Module oh-my-posh`, you need to first import
+Oh My Posh in your `$PROFILE` before adding the line below:
+
+```powershell
+Import-Module oh-my-posh
+```
+:::
 
 ```powershell
 oh-my-posh --init --shell pwsh --config ~/jandedobbeleer.omp.json | Invoke-Expression

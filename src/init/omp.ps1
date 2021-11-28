@@ -2,13 +2,15 @@
 # that pop up when we don't
 if ($ExecutionContext.SessionState.LanguageMode -ne "ConstrainedLanguage") {
     [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
-} elseif ($env:POSH_CONSTRAINED_LANGUAGE -ne 1) {
+}
+else {
     Write-Host "[WARNING] ConstrainedLanguage mode detected, unable to set console to UTF-8.
 When using PowerShell in ConstrainedLanguage mode, please set the
 console mode manually to UTF-8. See here for more information:
 https://ohmyposh.dev/docs/faq#powershell-running-in-constrainedlanguage-mode
 "
 }
+
 $env:POWERLINE_COMMAND = "oh-my-posh"
 $env:CONDA_PROMPT_MODIFIER = $false
 
@@ -22,17 +24,12 @@ if ($null -eq $omp_value) {
     $env:POSH_GIT_ENABLED = $false
 }
 
-$global:PoshSettings = New-Object -TypeName PSObject -Property @{
-    Theme     = "";
-    Transient = $false;
-}
-
 # used to detect empty hit
 $global:omp_lastHistoryId = -1
 
 $omp_config = "::CONFIG::"
 if (Test-Path $omp_config) {
-    $global:PoshSettings.Theme = (Resolve-Path -Path $omp_config).ProviderPath
+    $env:POSH_THEME = (Resolve-Path -Path $omp_config).ProviderPath
 }
 
 Remove-Variable omp_value -Confirm:$false
@@ -41,7 +38,7 @@ Remove-Variable omp_config -Confirm:$false
 function global:Set-PoshContext {}
 
 function global:Get-PoshContext {
-    $config = $global:PoshSettings.Theme
+    $config = $env:POSH_THEME
     $cleanPWD = $PWD.ProviderPath.TrimEnd("\")
     $cleanPSWD = $PWD.ToString().TrimEnd("\")
     return $config, $cleanPWD, $cleanPSWD
@@ -80,10 +77,10 @@ function global:Initialize-ModuleSupport {
     $realLASTEXITCODE = $global:LASTEXITCODE
     $omp = "::OMP::"
     $config, $cleanPWD, $cleanPSWD = Get-PoshContext
-    if ($global:PoshSettings.Transient -eq $true) {
+    if ($env:POSH_TRANSIENT -eq $true) {
         $standardOut = @(&$omp --pwd="$cleanPWD" --pswd="$cleanPSWD" --config="$config" --print-transient 2>&1)
         $standardOut -join "`n"
-        $global:PoshSettings.Transient = $false
+        $env:POSH_TRANSIENT = $false
         return
     }
     $errorCode = 0
@@ -167,7 +164,7 @@ function global:Export-PoshTheme {
         $Format = 'json'
     )
 
-    $config = $global:PoshSettings.Theme
+    $config = $env:POSH_THEME
     $omp = "::OMP::"
     $configString = @(&$omp --config="$config" --config-format="$Format" --print-config 2>&1)
     # if no path, copy to clipboard by default
@@ -228,8 +225,85 @@ function global:Enable-PoshTooltips {
 
 function global:Enable-PoshTransientPrompt {
     Set-PSReadlineKeyHandler -Key Enter -ScriptBlock {
-        $global:PoshSettings.Transient = $true
+        $env:POSH_TRANSIENT = $true
         [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
     }
+}
+
+<#
+ .SYNOPSIS
+     Returns an ansi formatted hyperlink
+     if name not set, uri is used as the name of the hyperlink
+ .EXAMPLE
+     Get-Hyperlink
+ #>
+function global:Get-Hyperlink {
+    param(
+        [Parameter(Mandatory, ValuefromPipeline = $True)]
+        [string]$uri,
+        [Parameter(ValuefromPipeline = $True)]
+        [string]$name
+    )
+    $esc = [char]27
+    if ("" -eq $name) {
+        $name = $uri
+    }
+    if ($null -ne $env:WSL_DISTRO_NAME) {
+        # wsl conversion if needed
+        $uri = &wslpath -m $uri
+    }
+    return "$esc]8;;file://$uri$esc\$name$esc]8;;$esc\"
+}
+
+function global:Get-PoshThemes() {
+    param(
+        [Parameter(Mandatory = $false, HelpMessage = "The themes folder")]
+        [string]
+        $Path = $env:POSH_THEMES_PATH,
+        [switch]
+        [Parameter(Mandatory = $false, HelpMessage = "List themes path")]
+        $List
+    )
+
+    if ($Path -eq "") {
+        do {
+            $temp = Read-Host 'Please enter the themes path'
+        }
+        while (-not (Test-Path -Path $temp))
+        $Path = (Resolve-Path -Path $temp).ProviderPath
+    }
+
+    $logo = @'
+   __  _____ _      ___  ___       ______         _      __
+  / / |  _  | |     |  \/  |       | ___ \       | |     \ \
+ / /  | | | | |__   | .  . |_   _  | |_/ /__  ___| |__    \ \
+< <   | | | | '_ \  | |\/| | | | | |  __/ _ \/ __| '_ \    > >
+ \ \  \ \_/ / | | | | |  | | |_| | | | | (_) \__ \ | | |  / /
+  \_\  \___/|_| |_| \_|  |_/\__, | \_|  \___/|___/_| |_| /_/
+                             __/ |
+                            |___/
+'@
+    Write-Host $logo
+    $themes = Get-ChildItem -Path "$Path\*" -Include '*.omp.json' | Sort-Object Name
+    if ($List -eq $true) {
+        $themes | Select-Object @{ Name = 'hyperlink'; Expression = { Get-Hyperlink -uri $_.fullname } } | Format-Table -HideTableHeaders
+    }
+    else {
+        $omp = "::OMP::"
+        $themes | ForEach-Object -Process {
+            Write-Host "Theme: $(Get-Hyperlink -uri $_.fullname -name $_.BaseName.Replace('.omp', ''))"
+            Write-Host ""
+            & $omp -config $($_.FullName) -pwd $PWD -shell pwsh
+            Write-Host ""
+            Write-Host ""
+        }
+    }
+    Write-Host ""
+    Write-Host "Themes location: $(Get-Hyperlink -uri "$Path")"
+    Write-Host ""
+    Write-Host "To change your theme, adjust the init script in $PROFILE."
+    Write-Host "Example:"
+    Write-Host "  oh-my-posh --init --shell pwsh --config $Path/jandedobbeleer.omp.json | Invoke-Expression"
+    Write-Host ""
 }
