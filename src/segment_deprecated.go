@@ -17,12 +17,12 @@ const (
 
 // Properties
 
-func (p properties) getOneOfBool(property, legacyProperty Property) bool {
+func (p properties) getOneOfBool(property, legacyProperty Property, defaultValue bool) bool {
 	_, found := p[legacyProperty]
 	if found {
-		return p.getBool(legacyProperty, false)
+		return p.getBool(legacyProperty, defaultValue)
 	}
-	return p.getBool(property, false)
+	return p.getBool(property, defaultValue)
 }
 
 func (p properties) hasOneOf(properties ...Property) bool {
@@ -238,3 +238,168 @@ func (b *batt) shouldDisplay() bool {
 	}
 	return true
 }
+
+// Session
+
+const (
+	// UserInfoSeparator is put between the user and computer name
+	UserInfoSeparator Property = "user_info_separator"
+	// UserColor if set, is used to color the user name
+	UserColor Property = "user_color"
+	// HostColor if set, is used to color the computer name
+	HostColor Property = "host_color"
+	// DisplayHost hides or show the computer name
+	DisplayHost Property = "display_host"
+	// DisplayUser hides or shows the user name
+	DisplayUser Property = "display_user"
+	// DefaultUserName holds the default user of the platform
+	DefaultUserName Property = "default_user_name"
+	// SSHIcon is the icon used for SSH sessions
+	SSHIcon Property = "ssh_icon"
+
+	defaultUserEnvVar = "POSH_SESSION_DEFAULT_USER"
+)
+
+func (s *session) getDefaultUser() string {
+	user := s.env.getenv(defaultUserEnvVar)
+	if len(user) == 0 {
+		user = s.props.getString(DefaultUserName, "")
+	}
+	return user
+}
+
+func (s *session) legacyEnabled() bool {
+	if s.props.getBool(DisplayUser, true) {
+		s.UserName = s.getUserName()
+	}
+	if s.props.getBool(DisplayHost, true) {
+		s.ComputerName = s.getComputerName()
+	}
+	s.DefaultUserName = s.getDefaultUser()
+	showDefaultUser := s.props.getBool(DisplayDefault, true)
+	if !showDefaultUser && s.DefaultUserName == s.UserName {
+		return false
+	}
+	return true
+}
+
+func (s *session) getFormattedText() string {
+	separator := ""
+	if s.props.getBool(DisplayHost, true) && s.props.getBool(DisplayUser, true) {
+		separator = s.props.getString(UserInfoSeparator, "@")
+	}
+	var sshIcon string
+	if s.SSHSession {
+		sshIcon = s.props.getString(SSHIcon, "\uF817 ")
+	}
+	defaulColor := s.props.getColor(ForegroundOverride, "")
+	userColor := s.props.getColor(UserColor, defaulColor)
+	hostColor := s.props.getColor(HostColor, defaulColor)
+	if len(userColor) > 0 && len(hostColor) > 0 {
+		return fmt.Sprintf("%s<%s>%s</>%s<%s>%s</>", sshIcon, userColor, s.UserName, separator, hostColor, s.ComputerName)
+	}
+	if len(userColor) > 0 {
+		return fmt.Sprintf("%s<%s>%s</>%s%s", sshIcon, userColor, s.UserName, separator, s.ComputerName)
+	}
+	if len(hostColor) > 0 {
+		return fmt.Sprintf("%s%s%s<%s>%s</>", sshIcon, s.UserName, separator, hostColor, s.ComputerName)
+	}
+	return fmt.Sprintf("%s%s%s%s", sshIcon, s.UserName, separator, s.ComputerName)
+}
+
+// Language
+
+const (
+	// DisplayVersion show the version number or not
+	DisplayVersion Property = "display_version"
+	// VersionMismatchColor displays empty string by default
+	VersionMismatchColor Property = "version_mismatch_color"
+	// EnableVersionMismatch displays empty string by default
+	EnableVersionMismatch Property = "enable_version_mismatch"
+)
+
+func (l *language) string() string {
+	if !l.props.getOneOfBool(FetchVersion, DisplayVersion, true) {
+		return ""
+	}
+
+	err := l.setVersion()
+	if err != nil {
+		l.Error = err.Error()
+	}
+	displayError := l.props.getBool(DisplayError, true)
+	if err != nil && displayError {
+		return err.Error()
+	}
+	if err != nil {
+		return ""
+	}
+
+	segmentTemplate := l.props.getString(SegmentTemplate, "{{ .Full }}")
+	template := &textTemplate{
+		Template: segmentTemplate,
+		Context:  l.version,
+		Env:      l.env,
+	}
+	text, err := template.render()
+	if err != nil {
+		return err.Error()
+	}
+
+	if l.props.getBool(EnableHyperlink, false) {
+		versionURLTemplate := l.props.getString(VersionURLTemplate, "")
+		// backward compatibility
+		if versionURLTemplate == "" {
+			text = l.buildVersionURL(text)
+		} else {
+			template := &textTemplate{
+				Template: versionURLTemplate,
+				Context:  l.version,
+				Env:      l.env,
+			}
+			url, err := template.render()
+			if err != nil {
+				return err.Error()
+			}
+			text = url
+		}
+	}
+
+	if l.props.getBool(EnableVersionMismatch, false) {
+		l.setVersionFileMismatch()
+	}
+	return text
+}
+
+func (l *language) colorMismatch() {
+	if l.props.getBool(ColorBackground, false) {
+		l.props[BackgroundOverride] = l.props.getColor(VersionMismatchColor, l.props.getColor(BackgroundOverride, ""))
+		return
+	}
+	l.props[ForegroundOverride] = l.props.getColor(VersionMismatchColor, l.props.getColor(ForegroundOverride, ""))
+}
+
+// Python
+
+const (
+	// DisplayVirtualEnv shows or hides the virtual env
+	DisplayVirtualEnv Property = "display_virtual_env"
+)
+
+func (p *python) legacyString() string {
+	if p.Venv == "" {
+		return p.language.string()
+	}
+	version := p.language.string()
+	if version == "" {
+		return p.Venv
+	}
+	return fmt.Sprintf("%s %s", p.Venv, version)
+}
+
+// Node
+
+const (
+	// DisplayPackageManager shows if NPM or Yarn is used
+	DisplayPackageManager Property = "display_package_manager"
+)

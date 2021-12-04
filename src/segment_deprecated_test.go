@@ -401,3 +401,303 @@ func TestBatterySegmentSingle(t *testing.T) {
 		assert.Equal(t, tc.ExpectedColor, actualColor, tc.Case)
 	}
 }
+
+// Session
+
+func TestPropertySessionSegment(t *testing.T) {
+	cases := []struct {
+		Case               string
+		ExpectedEnabled    bool
+		ExpectedString     string
+		UserName           string
+		Host               string
+		DefaultUserName    string
+		DefaultUserNameEnv string
+		SSHSession         bool
+		SSHClient          bool
+		Root               bool
+		DisplayUser        bool
+		DisplayHost        bool
+		DisplayDefault     bool
+		HostColor          string
+		UserColor          string
+		GOOS               string
+		HostError          bool
+	}{
+		{
+			Case:            "user and computer",
+			ExpectedString:  "john at company-laptop",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "user and computer with host color",
+			ExpectedString:  "john at <yellow>company-laptop</>",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			HostColor:       "yellow",
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "user and computer with user color",
+			ExpectedString:  "<yellow>john</> at company-laptop",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			UserColor:       "yellow",
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "user and computer with both colors",
+			ExpectedString:  "<yellow>john</> at <green>company-laptop</>",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			UserColor:       "yellow",
+			HostColor:       "green",
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "SSH Session",
+			ExpectedString:  "ssh john at company-laptop",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			SSHSession:      true,
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "SSH Client",
+			ExpectedString:  "ssh john at company-laptop",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			SSHClient:       true,
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "SSH Client",
+			ExpectedString:  "ssh john at company-laptop",
+			Host:            "company-laptop",
+			DisplayUser:     true,
+			DisplayHost:     true,
+			UserName:        "john",
+			SSHClient:       true,
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "only user name",
+			ExpectedString:  "john",
+			Host:            "company-laptop",
+			UserName:        "john",
+			DisplayUser:     true,
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "windows user name",
+			ExpectedString:  "john at company-laptop",
+			Host:            "company-laptop",
+			UserName:        "surface\\john",
+			DisplayHost:     true,
+			DisplayUser:     true,
+			ExpectedEnabled: true,
+			GOOS:            string(Windows),
+		},
+		{
+			Case:            "only host name",
+			ExpectedString:  "company-laptop",
+			Host:            "company-laptop",
+			UserName:        "john",
+			DisplayDefault:  true,
+			DisplayHost:     true,
+			ExpectedEnabled: true,
+		},
+		{
+			Case:            "display default - hidden",
+			Host:            "company-laptop",
+			UserName:        "john",
+			DefaultUserName: "john",
+			DisplayDefault:  false,
+			DisplayHost:     true,
+			DisplayUser:     true,
+			ExpectedEnabled: false,
+		},
+		{
+			Case:               "display default with env var - hidden",
+			Host:               "company-laptop",
+			UserName:           "john",
+			DefaultUserNameEnv: "john",
+			DefaultUserName:    "jake",
+			DisplayDefault:     false,
+			DisplayHost:        true,
+			DisplayUser:        true,
+			ExpectedEnabled:    false,
+		},
+		{
+			Case:            "host error",
+			ExpectedString:  "john at unknown",
+			Host:            "company-laptop",
+			HostError:       true,
+			UserName:        "john",
+			DisplayHost:     true,
+			DisplayUser:     true,
+			ExpectedEnabled: true,
+		},
+	}
+
+	for _, tc := range cases {
+		env := new(MockedEnvironment)
+		env.On("getCurrentUser", nil).Return(tc.UserName)
+		env.On("getRuntimeGOOS", nil).Return(tc.GOOS)
+		if tc.HostError {
+			env.On("getHostName", nil).Return(tc.Host, errors.New("oh snap"))
+		} else {
+			env.On("getHostName", nil).Return(tc.Host, nil)
+		}
+		var SSHSession string
+		if tc.SSHSession {
+			SSHSession = "zezzion"
+		}
+		var SSHClient string
+		if tc.SSHClient {
+			SSHClient = "clientz"
+		}
+		env.On("getenv", "SSH_CONNECTION").Return(SSHSession)
+		env.On("getenv", "SSH_CLIENT").Return(SSHClient)
+		env.On("getenv", "SSH_CLIENT").Return(SSHSession)
+		env.On("getenv", defaultUserEnvVar).Return(tc.DefaultUserNameEnv)
+		env.On("isRunningAsRoot", nil).Return(tc.Root)
+		var props properties = map[Property]interface{}{
+			UserInfoSeparator: " at ",
+			SSHIcon:           "ssh ",
+			DefaultUserName:   tc.DefaultUserName,
+			DisplayDefault:    tc.DisplayDefault,
+			DisplayUser:       tc.DisplayUser,
+			DisplayHost:       tc.DisplayHost,
+			HostColor:         tc.HostColor,
+			UserColor:         tc.UserColor,
+		}
+		session := &session{
+			env:   env,
+			props: props,
+		}
+		assert.Equal(t, tc.ExpectedEnabled, session.enabled(), tc.Case)
+		if tc.ExpectedEnabled {
+			assert.Equal(t, tc.ExpectedString, session.string(), tc.Case)
+		}
+	}
+}
+
+// Language
+
+func TestLanguageVersionMismatch(t *testing.T) {
+	cases := []struct {
+		Case            string
+		Enabled         bool
+		Mismatch        bool
+		ExpectedColor   string
+		ColorBackground bool
+	}{
+		{Case: "Mismatch - Foreground color", Enabled: true, Mismatch: true, ExpectedColor: "#566777"},
+		{Case: "Mismatch - Background color", Enabled: true, Mismatch: true, ExpectedColor: "#566777", ColorBackground: true},
+		{Case: "Disabled", Enabled: false},
+		{Case: "No mismatch", Enabled: true, Mismatch: false},
+	}
+	for _, tc := range cases {
+		props := map[Property]interface{}{
+			EnableVersionMismatch: tc.Enabled,
+			VersionMismatchColor:  tc.ExpectedColor,
+			ColorBackground:       tc.ColorBackground,
+		}
+		var matchesVersionFile func() bool
+		switch tc.Mismatch {
+		case true:
+			matchesVersionFile = func() bool {
+				return false
+			}
+		default:
+			matchesVersionFile = func() bool {
+				return true
+			}
+		}
+		args := &languageArgs{
+			commands: []*cmd{
+				{
+					executable: "unicorn",
+					args:       []string{"--version"},
+					regex:      "(?P<version>.*)",
+				},
+			},
+			extensions:         []string{uni, corn},
+			enabledExtensions:  []string{uni, corn},
+			enabledCommands:    []string{"unicorn"},
+			version:            universion,
+			properties:         props,
+			matchesVersionFile: matchesVersionFile,
+		}
+		lang := bootStrapLanguageTest(args)
+		assert.True(t, lang.enabled(), tc.Case)
+		assert.Equal(t, universion, lang.string(), tc.Case)
+		if tc.ColorBackground {
+			assert.Equal(t, tc.ExpectedColor, lang.props[BackgroundOverride], tc.Case)
+			return
+		}
+		assert.Equal(t, tc.ExpectedColor, lang.props.getColor(ForegroundOverride, ""), tc.Case)
+	}
+}
+
+// Python
+
+func TestPythonVirtualEnv(t *testing.T) {
+	cases := []struct {
+		Case                string
+		Expected            string
+		ExpectedDisabled    bool
+		VirtualEnvName      string
+		CondaEnvName        string
+		CondaDefaultEnvName string
+		PyEnvName           string
+		FetchVersion        bool
+		DisplayDefault      bool
+	}{
+		{Case: "VENV", Expected: "VENV", VirtualEnvName: "VENV"},
+		{Case: "CONDA", Expected: "CONDA", CondaEnvName: "CONDA"},
+		{Case: "CONDA default", Expected: "CONDA", CondaDefaultEnvName: "CONDA"},
+		{Case: "Display Base", Expected: "base", CondaDefaultEnvName: "base", DisplayDefault: true},
+		{Case: "Hide base", Expected: "", CondaDefaultEnvName: "base", ExpectedDisabled: true},
+		{Case: "PYENV", Expected: "PYENV", PyEnvName: "PYENV"},
+		{Case: "PYENV Version", Expected: "PYENV 3.8.4", PyEnvName: "PYENV", FetchVersion: true},
+	}
+
+	for _, tc := range cases {
+		env := new(MockedEnvironment)
+		env.On("hasCommand", "python").Return(true)
+		env.On("runCommand", "python", []string{"--version"}).Return("Python 3.8.4", nil)
+		env.On("hasFiles", "*.py").Return(true)
+		env.On("getenv", "VIRTUAL_ENV").Return(tc.VirtualEnvName)
+		env.On("getenv", "CONDA_ENV_PATH").Return(tc.CondaEnvName)
+		env.On("getenv", "CONDA_DEFAULT_ENV").Return(tc.CondaDefaultEnvName)
+		env.On("getenv", "PYENV_VERSION").Return(tc.PyEnvName)
+		env.On("getPathSeperator", nil).Return("")
+		env.On("getcwd", nil).Return("/usr/home/project")
+		env.On("homeDir", nil).Return("/usr/home")
+		var props properties = map[Property]interface{}{
+			FetchVersion:      tc.FetchVersion,
+			DisplayVirtualEnv: true,
+			DisplayDefault:    tc.DisplayDefault,
+		}
+		python := &python{}
+		python.init(props, env)
+		assert.Equal(t, !tc.ExpectedDisabled, python.enabled(), tc.Case)
+		assert.Equal(t, tc.Expected, python.string(), tc.Case)
+	}
+}
